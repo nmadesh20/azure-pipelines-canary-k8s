@@ -52,7 +52,7 @@ stages:
       displayName: Deploy Canary
       pool:
         vmImage: ubuntu-latest
-      environment: 'akscanary.canarydemo'
+      environment: 'akscanary'
       strategy:
        runOnce:
          deploy:
