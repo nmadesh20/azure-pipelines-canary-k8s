@@ -37,3 +37,47 @@ stages:
         containerRegistry: $(dockerRegistryServiceConnection)
         tags: |
           $(tag)
+    - publish: manifests
+      artifact: manifests
+    
+    - publish: misc
+      artifact: misc
+- stage: DeployCanary
+  displayName: Deploy Canary
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+    - deployment: Deploycanary
+      displayName: Deploy Canary
+      pool:
+        vmImage: ubuntu-latest
+      environment: 'akscanary.canarydemo'
+      strategy:
+       runOnce:
+         deploy:
+          steps:
+            - task: KubernetesManifest@0
+              displayName: Create imagePullSecret
+              inputs:
+                action: createSecret
+                secretName: azure-pipelines-canary-k8s
+                dockerRegistryEndpoint: $(dockerRegistryServiceConnection)
+
+            - task: KubernetesManifest@0
+              displayName: Deploy to Kubernetes clsuter
+              inputs:
+               action: deploy
+               strategy: canary
+               percentage: '25'
+               manifests: |
+                 $(Pipeline.Workspace)/manifests/deployment.yml
+                 $(Pipeline.Workspace)/manifests/service.yml
+               containers: '$(containerRegistry)/$(imageRepository):$(tag)'
+               imagePullSecrets: azure-pipelines-canary-k8s
+            - task: KubernetesManifest@0
+              displayName: Deploy Forbio and ServiceMonitor
+              inputs:
+               action: deploy
+               manifests: |
+                 $(Pipeline.Workspace)/misc/*
+                 
